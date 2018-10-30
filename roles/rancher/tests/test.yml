@@ -1,0 +1,5 @@
+---
+- hosts: rancher
+  remote_user: root
+  roles:
+    - rancher

@@ -1,0 +1,16 @@
+nodes:
+  - address: 10.201.91.57
+    user: ubuntu
+    role: [controlplane,etcd,worker]
+  - address: 10.201.91.58
+    user: ubuntu
+    role: [controlplane,etcd,worker]
+  - address: 10.201.91.59
+    user: ubuntu
+    role: [controlplane,etcd,worker]
+
+services:
+  etcd:
+    snapshot: true
+    creation: 6h
+    retention: 24h

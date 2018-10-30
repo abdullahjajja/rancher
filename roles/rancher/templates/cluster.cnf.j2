@@ -1,0 +1,16 @@
+nodes:
+  - address: {{ groups['rancher'][0] }}
+    user: rancher
+    role: [controlplane,worker,etcd]
+  - address: {{ groups['rancher'][1] }}
+    user: rancher
+    role: [controlplane,worker,etcd]
+  - address: {{ groups['rancher'][2] }}
+    user: rancher
+    role: [controlplane,worker,etcd]
+
+services:
+  etcd:
+    snapshot: true
+    creation: 6h
+    retention: 24h

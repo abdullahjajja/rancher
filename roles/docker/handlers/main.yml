@@ -1,0 +1,6 @@
+---
+# handlers file for docker
+- name: restart docker
+  service: name=docker state=start enabled=true
+- name: restart firewalld
+  service: name=firewalld state=restarted

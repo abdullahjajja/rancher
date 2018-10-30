@@ -1,0 +1,11 @@
+[rancher:vars]
+ansible_user=root
+ansible_ssh_pass=r5dh@t
+#ansible_become=true
+
+[rancher]
+10.201.91.57
+10.201.91.58
+10.201.91.59
+
+

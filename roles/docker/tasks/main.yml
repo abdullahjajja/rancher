@@ -1,0 +1,103 @@
+---
+# tasks file for docker
+- name: DETERMINING IF DOCKER IS ALREADY INSTALL
+  command: which docker
+  register: docker_installed
+  ignore_errors: true
+  changed_when: false
+#- debug:
+#    msg: "Ansible : {{ docker_installed.stdout }}"
+
+- name: TCP PORTS OPENING IN FIREWALLD
+  firewalld: port={{ item }}/tcp permanent=yes state=enabled
+  with_items: "{{ firewall_allowed_tcp_ports }}"
+  notify: restart firewalld   
+
+- name: UDP PORTS OPENING IN FIREWALLD
+  firewalld: port={{ item }}/udp permanent=yes state=enabled
+  with_items: "{{ firewall_allowed_udp_ports }}"
+  notify: restart firewalld 
+
+- name: FIREWALLD RELOAD
+  command: firewall-cmd --reload
+
+- name: See if selinux is running
+  shell: getenforce
+  register: sestatus
+  
+- name: Disable SELinux at next reboot
+  selinux:
+   state: disabled
+  when: sestatus.stdout == "Enforcing"
+  
+- name: printing current selinux status
+  debug: msg="selinux is {{sestatus.stdout}}"
+  
+- name: restart server
+  shell: sleep 2 && shutdown -r now "Ansible updates triggered"
+  async: 1
+  poll: 0
+  ignore_errors: true
+  become: true
+  when: sestatus.stdout!="Disabled"
+  
+- name: Wait for machine to come back
+  wait_for_connection:
+    connect_timeout: 20
+    delay: 5
+    sleep: 5
+    timeout: 120
+  when: sestatus.stdout!="Disabled"
+ 
+- name: INSTALL DEPENDENCIES
+  yum:
+      name={{ item }}
+      update_cache=yes
+      state=present
+  with_items: "{{ __docker_pre_packages }}"
+
+- name: ADD DOCKER YUM REPO
+  shell: "yum-config-manager --add-repo {{ __docker_repo_url }}"
+  when: __docker_package == "docker-ce" and ansible_distribution == 'CentOS'
+
+- name: Add docker yum repo for older versions
+  yum_repository:
+    name: docker
+    description: Docker Repo
+    baseurl: "{{ __docker_repo_url }}"
+    gpgkey: "{{ __docker_repo_key }}"
+    gpgcheck: yes
+  when: __docker_package == "docker-engine" and ansible_distribution == 'CentOS'
+
+- name: INSTALLING DOCKER PACKAGE On CentOS
+  yum: 
+    name="{{ __docker_package }}-{{ __docker_version }}"
+    update_cache=yes
+  when: ansible_distribution == 'CentOS'
+
+- name: INSTALLING DOCKER PACKAGE ON RedHat
+  yum: 
+    name="{{ __docker_package_RedHat }}-{{ __docker_version_RedHat }}"
+    update_cache=yes
+  when: ansible_distribution == 'RedHat'
+  
+- name: STARTING AND ENBABLING DOCKER AT BOOT TIME
+  service: name=docker state=started enabled=true
+
+- name: USER CREATION
+  user:
+    name: rancher
+    groups: docker
+    password: "{{ 'r5dh@t' | password_hash('sha512') }}"
+    
+# - name: stop docker
+  # shell: systemctl stop docker
+  
+# - name: COPYING daemon.json FILE
+  # copy:
+    # src: daemon.json
+    # dest: /etc/docker/
+    # mode: 0755
+
+# - name: start docker
+  # shell: systemctl start docker

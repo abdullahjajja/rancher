@@ -1,0 +1,128 @@
+---
+- name: COPYING KUBECTL REPO FILE
+  copy:
+    src: kubernetes.repo
+    dest: /etc/yum.repos.d/
+    mode: 0755
+  delegate_to: 127.0.0.1
+  run_once: true 
+- name: install kubelet
+  yum: name=kubectl state=present update_cache=true
+  delegate_to: 127.0.0.1
+  run_once: true
+ 
+- authorized_key:
+    user: rancher
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+- name: COPYING RKE FILE
+  copy:
+    src: rke
+    dest: /usr/bin/
+    mode: 0755
+  delegate_to: 127.0.0.1
+  run_once: true
+
+- name: COPYING JQ FILE
+  copy:
+    src: jq
+    dest: /usr/bin/
+    mode: 0755
+  delegate_to: 127.0.0.1
+  run_once: true
+  
+- name: copy helm
+  copy:
+    src: helm
+    dest: /usr/local/bin/
+    mode: 0755
+  delegate_to: 127.0.0.1
+  run_once: true
+  
+- name: rancher cluster yml file creation
+  template:
+    src: cluster.cnf.j2
+    dest: /root/cluster.yml
+    backup: yes
+  delegate_to: 127.0.0.1
+  run_once: true
+- name: rancher managment nodes deployment using rke
+#  run_once: true
+  shell: rke up --config /root/cluster.yml
+  async: 1800
+  poll: 5
+  environment:
+    KUBECONFIG: /root/kube_config_cluster.yml
+  delegate_to: 127.0.0.1
+  run_once: true
+
+- name: kubectl get nodes
+  command: kubectl --kubeconfig /root/kube_config_cluster.yml get nodes
+  delegate_to: 127.0.0.1
+  register: nodes_status
+  until:      
+     - '" Ready "  in nodes_status.stdout'      
+  retries: 5
+  delay: 60
+  run_once: true
+- name: print nodes status
+  debug:
+#    var: nodes_status.stdout_lines
+    msg: "{{ nodes_status.stdout_lines|list }}"
+  run_once: true
+
+- name: Create the ServiceAccount in the kube-system namespace
+  shell: kubectl --kubeconfig /root/kube_config_cluster.yml -n kube-system create serviceaccount tiller
+  delegate_to: 127.0.0.1
+  register: tiller_account
+  run_once: true
+  
+- name: serviceaccount tiller
+  debug:
+    msg: "{{ tiller_account.stdout_lines|list }}"
+    
+- name: Create the ClusterRoleBinding to give the tiller account access to the cluster
+  shell: kubectl --kubeconfig /root/kube_config_cluster.yml create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+  delegate_to: 127.0.0.1
+  register: ClusterRoleBinding
+  run_once: true
+  
+- name: ClusterRoleBinding Result
+  debug:
+    msg: "{{ ClusterRoleBinding.stdout_lines|list }}"
+
+- name: Finally use helm to install the tiller service
+  shell: helm init --service-account tiller
+  delegate_to: 127.0.0.1
+  register: install_tiller_service
+  run_once: true
+  
+- name: install the tiller service`
+  debug:
+    msg: "{{ install_tiller_service.stdout_lines|list }}"
+  run_once: true
+  
+- name: Test your Tiller installation
+  shell: kubectl --kubeconfig /root/kube_config_cluster.yml -n kube-system  rollout status deploy/tiller-deploy
+  delegate_to: 127.0.0.1
+  register: Test_your_Tiller_installation
+  run_once: true
+  
+- name: verify the installation of tiller on your cluster
+  debug:
+    msg: "{{ Test_your_Tiller_installation.stdout_lines|list }}"
+  run_once: true
+
+- name: Add the Helm Chart Repository
+  shell: helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
+  delegate_to: 127.0.0.1
+  run_once: true
+  
+- name: Install cert-manager
+  shell: helm install stable/cert-manager --name cert-manager --namespace kube-system
+  delegate_to: 127.0.0.1
+  run_once: true
+  
+- name: Rancher installation
+  shell: helm install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname={{ cluster_domain }}
+  delegate_to: 127.0.0.1
+  run_once: true
