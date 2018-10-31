@@ -40,7 +40,8 @@
   shell: cat ~/.ssh/id_rsa.pub    
   register: jump_server_ssh_keys    
   delegate_to: "{{ groups['jumper'][0] }}"    
-  when: ssh_key.stat.exists == True    
+  when: ssh_key.stat.exists == True
+  changed_when: False  
   run_once: true    
     
 - name: check keys    
@@ -53,7 +54,7 @@
 - name: deploy keys on all servers    
   authorized_key:
     user: rancher
-     state: present
+    state: present
     key: "{{ jump_server_ssh_keys.stdout }}"
   delegate_to: "{{ item }}"
   with_items: "{{groups['rancher']}}"
@@ -136,7 +137,7 @@
     msg: "{{ ClusterRoleBinding.stdout_lines|list }}"
 
 - name: Finally use helm to install the tiller service
-  shell: helm init --service-account tiller
+  shell: helm --kubeconfig /root/kube_config_cluster.yml init --service-account tiller
   delegate_to: "{{ groups['jumper'][0] }}"
   register: install_tiller_service
   run_once: true
@@ -163,11 +164,11 @@
   run_once: true
   
 - name: Install cert-manager
-  shell: helm install stable/cert-manager --name cert-manager --namespace kube-system
+  shell: helm --kubeconfig /root/kube_config_cluster.yml install stable/cert-manager --name cert-manager --namespace kube-system
   delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
   
 - name: Rancher installation
-  shell: helm install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname={{ cluster_domain }}
+  shell: helm --kubeconfig /root/kube_config_cluster.yml install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname={{ cluster_domain }}
   delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
