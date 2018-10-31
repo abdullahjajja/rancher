@@ -171,4 +171,10 @@
 - name: Rancher installation
   shell: helm --kubeconfig /root/kube_config_cluster.yml install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname={{ cluster_domain }}
   delegate_to: "{{ groups['jumper'][0] }}"
+  when: cluster_domain is defined
   run_once: true
+
+# - name: Fail Message
+  # fail: msg=cluster_domain variable is not defined
+  # when: cluster_domain is not defined
+  
