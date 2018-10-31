@@ -4,22 +4,67 @@
     src: kubernetes.repo
     dest: /etc/yum.repos.d/
     mode: 0755
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true 
+  
 - name: install kubelet
   yum: name=kubectl state=present update_cache=true
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
  
-- authorized_key:
+# - authorized_key:
+    # user: rancher
+    # key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+- name: Ensure SSH keys don't already exist
+  stat:    
+    path: ~/.ssh/id_rsa    
+  register: ssh_key    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  run_once: true    
+    
+- name: SSH Keys SSH keys don't exist    
+  debug:    
+    msg: "SSH keys don't exist"    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  when: ssh_key.stat.exists == False    
+  run_once: true    
+    
+- name: Generate SSH keys for passwordless SSH    
+  shell: ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ''    
+  register: id_rsa_pub    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  when: ssh_key.stat.exists == False    
+  run_once: true    
+    
+- name: fetch jump server public ssh keys    
+  shell: cat ~/.ssh/id_rsa.pub    
+  register: jump_server_ssh_keys    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  when: ssh_key.stat.exists == True    
+  run_once: true    
+    
+- name: check keys    
+  debug:     
+    msg: " {{ jump_server_ssh_keys.stdout }}"    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  when: ssh_key.stat.exists == True    
+  run_once: true    
+    
+- name: deploy keys on all servers    
+  authorized_key:
     user: rancher
-    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+     state: present
+    key: "{{ jump_server_ssh_keys.stdout }}"
+  delegate_to: "{{ item }}"
+  with_items: "{{groups['rancher']}}"
+
+
 - name: COPYING RKE FILE
   copy:
     src: rke
     dest: /usr/bin/
     mode: 0755
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
 
 - name: COPYING JQ FILE
@@ -27,7 +72,7 @@
     src: jq
     dest: /usr/bin/
     mode: 0755
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
   
 - name: copy helm
@@ -35,7 +80,7 @@
     src: helm
     dest: /usr/local/bin/
     mode: 0755
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
   
 - name: rancher cluster yml file creation
@@ -43,7 +88,7 @@
     src: cluster.cnf.j2
     dest: /root/cluster.yml
     backup: yes
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
 - name: rancher managment nodes deployment using rke
 #  run_once: true
@@ -52,12 +97,12 @@
   poll: 5
   environment:
     KUBECONFIG: /root/kube_config_cluster.yml
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
 
 - name: kubectl get nodes
   command: kubectl --kubeconfig /root/kube_config_cluster.yml get nodes
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   register: nodes_status
   until:      
      - '" Ready "  in nodes_status.stdout'      
@@ -72,7 +117,7 @@
 
 - name: Create the ServiceAccount in the kube-system namespace
   shell: kubectl --kubeconfig /root/kube_config_cluster.yml -n kube-system create serviceaccount tiller
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   register: tiller_account
   run_once: true
   
@@ -82,7 +127,7 @@
     
 - name: Create the ClusterRoleBinding to give the tiller account access to the cluster
   shell: kubectl --kubeconfig /root/kube_config_cluster.yml create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   register: ClusterRoleBinding
   run_once: true
   
@@ -92,7 +137,7 @@
 
 - name: Finally use helm to install the tiller service
   shell: helm init --service-account tiller
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   register: install_tiller_service
   run_once: true
   
@@ -103,7 +148,7 @@
   
 - name: Test your Tiller installation
   shell: kubectl --kubeconfig /root/kube_config_cluster.yml -n kube-system  rollout status deploy/tiller-deploy
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   register: Test_your_Tiller_installation
   run_once: true
   
@@ -114,15 +159,15 @@
 
 - name: Add the Helm Chart Repository
   shell: helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
   
 - name: Install cert-manager
   shell: helm install stable/cert-manager --name cert-manager --namespace kube-system
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
   
 - name: Rancher installation
   shell: helm install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname={{ cluster_domain }}
-  delegate_to: 127.0.0.1
+  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
