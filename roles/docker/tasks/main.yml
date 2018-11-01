@@ -1,5 +1,13 @@
 ---
 # tasks file for docker
+- name: 'check cluster_domain variable is defined or not'
+  fail: msg="cluster_domain variable is not Defined"
+  when: " cluster_domain is not defined "
+
+- name: 'check jumper host group is defined or not'
+  fail: msg="jumper host group is not Defined"
+  when: "'jumper' not in groups"   
+  
 - name: DETERMINING IF DOCKER IS ALREADY INSTALL
   command: which docker
   register: docker_installed
