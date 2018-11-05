@@ -3,10 +3,10 @@
   hosts: rancher
   roles:
     - docker
-- name: Setting up Rancher Server
-  hosts: rancher
-  roles:
-    - rancher
+# - name: Setting up Rancher Server
+  # hosts: rancher
+  # roles:
+    # - rancher
 
 #- name: Setting up Rancher Server
 #  hosts: "rancher"
