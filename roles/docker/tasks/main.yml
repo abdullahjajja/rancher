@@ -97,6 +97,7 @@
     name: rancher
     groups: docker
     password: "{{ 'r5dh@t' | password_hash('sha512') }}"
+  when: ansible_distribution == 'CentOS'
     
 - name: USER CREATION ON RedHat
   user:
