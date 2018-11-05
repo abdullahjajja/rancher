@@ -1,103 +1,180 @@
 ---
-# tasks file for docker
-- name: DETERMINING IF DOCKER IS ALREADY INSTALL
-  command: which docker
-  register: docker_installed
-  ignore_errors: true
-  changed_when: false
-#- debug:
-#    msg: "Ansible : {{ docker_installed.stdout }}"
-
-- name: TCP PORTS OPENING IN FIREWALLD
-  firewalld: port={{ item }}/tcp permanent=yes state=enabled
-  with_items: "{{ firewall_allowed_tcp_ports }}"
-  notify: restart firewalld   
-
-- name: UDP PORTS OPENING IN FIREWALLD
-  firewalld: port={{ item }}/udp permanent=yes state=enabled
-  with_items: "{{ firewall_allowed_udp_ports }}"
-  notify: restart firewalld 
-
-- name: FIREWALLD RELOAD
-  command: firewall-cmd --reload
-
-- name: See if selinux is running
-  shell: getenforce
-  register: sestatus
+- name: COPYING KUBECTL REPO FILE
+  copy:
+    src: kubernetes.repo
+    dest: /etc/yum.repos.d/
+    mode: 0755
+  delegate_to: "{{ groups['jumper'][0] }}"
+  run_once: true 
   
-- name: Disable SELinux at next reboot
-  selinux:
-   state: disabled
-  when: sestatus.stdout == "Enforcing"
-  
-- name: printing current selinux status
-  debug: msg="selinux is {{sestatus.stdout}}"
-  
-- name: restart server
-  shell: sleep 2 && shutdown -r now "Ansible updates triggered"
-  async: 1
-  poll: 0
-  ignore_errors: true
-  become: true
-  when: sestatus.stdout!="Disabled"
-  
-- name: Wait for machine to come back
-  wait_for_connection:
-    connect_timeout: 20
-    delay: 5
-    sleep: 5
-    timeout: 120
-  when: sestatus.stdout!="Disabled"
+- name: install kubelet
+  yum: name=kubectl state=present update_cache=true
+  delegate_to: "{{ groups['jumper'][0] }}"
+  run_once: true
  
-- name: INSTALL DEPENDENCIES
-  yum:
-      name={{ item }}
-      update_cache=yes
-      state=present
-  with_items: "{{ __docker_pre_packages }}"
-
-- name: ADD DOCKER YUM REPO
-  shell: "yum-config-manager --add-repo {{ __docker_repo_url }}"
-  when: __docker_package == "docker-ce" and ansible_distribution == 'CentOS'
-
-- name: Add docker yum repo for older versions
-  yum_repository:
-    name: docker
-    description: Docker Repo
-    baseurl: "{{ __docker_repo_url }}"
-    gpgkey: "{{ __docker_repo_key }}"
-    gpgcheck: yes
-  when: __docker_package == "docker-engine" and ansible_distribution == 'CentOS'
-
-- name: INSTALLING DOCKER PACKAGE On CentOS
-  yum: 
-    name="{{ __docker_package }}-{{ __docker_version }}"
-    update_cache=yes
-  when: ansible_distribution == 'CentOS'
-
-- name: INSTALLING DOCKER PACKAGE ON RedHat
-  yum: 
-    name="{{ __docker_package_RedHat }}-{{ __docker_version_RedHat }}"
-    update_cache=yes
-  when: ansible_distribution == 'RedHat'
-  
-- name: STARTING AND ENBABLING DOCKER AT BOOT TIME
-  service: name=docker state=started enabled=true
-
-- name: USER CREATION
-  user:
-    name: rancher
-    groups: docker
-    password: "{{ 'r5dh@t' | password_hash('sha512') }}"
+# - authorized_key:
+    # user: rancher
+    # key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+- name: Ensure SSH keys don't already exist
+  stat:    
+    path: ~/.ssh/id_rsa    
+  register: ssh_key    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  run_once: true    
     
-# - name: stop docker
-  # shell: systemctl stop docker
-  
-# - name: COPYING daemon.json FILE
-  # copy:
-    # src: daemon.json
-    # dest: /etc/docker/
-    # mode: 0755
+- name: SSH Keys SSH keys don't exist    
+  debug:    
+    msg: "SSH keys don't exist"    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  when: ssh_key.stat.exists == False    
+  run_once: true    
+    
+- name: Generate SSH keys for passwordless SSH    
+  shell: ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ''    
+  register: id_rsa_pub    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  when: ssh_key.stat.exists == False    
+  run_once: true    
+    
+- name: fetch jump server public ssh keys    
+  shell: cat ~/.ssh/id_rsa.pub    
+  register: jump_server_ssh_keys    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  when: ssh_key.stat.exists == True
+  changed_when: False  
+  run_once: true    
+    
+- name: check keys    
+  debug:     
+    msg: " {{ jump_server_ssh_keys.stdout }}"    
+  delegate_to: "{{ groups['jumper'][0] }}"    
+  when: ssh_key.stat.exists == True    
+  run_once: true    
+    
+- name: deploy keys on all servers    
+  authorized_key:
+    user: rancher
+    state: present
+    key: "{{ jump_server_ssh_keys.stdout }}"
+  delegate_to: "{{ item }}"
+  with_items: "{{groups['rancher']}}"
 
-# - name: start docker
-  # shell: systemctl start docker
+
+- name: COPYING RKE FILE
+  copy:
+    src: rke
+    dest: $HOME
+    mode: 0755
+  delegate_to: "{{ groups['jumper'][0] }}"
+  run_once: true
+
+- name: COPYING JQ FILE
+  copy:
+    src: jq
+    dest: $HOME
+    mode: 0755
+  delegate_to: "{{ groups['jumper'][0] }}"
+  run_once: true
+  
+- name: copy helm
+  copy:
+    src: helm
+    dest: $HOME
+    mode: 0755
+  delegate_to: "{{ groups['jumper'][0] }}"
+  run_once: true
+  
+- name: rancher cluster yml file creation
+  template:
+    src: cluster.cnf.j2
+    dest: $HOME/cluster.yml
+    backup: yes
+  delegate_to: "{{ groups['jumper'][0] }}"
+  run_once: true
+- name: rancher managment nodes deployment using rke
+#  run_once: true
+  shell: $HOME/rke up --config $HOME/cluster.yml
+  async: 1800
+  poll: 5
+  environment:
+    KUBECONFIG: $HOME/kube_config_cluster.yml
+  delegate_to: "{{ groups['jumper'][0] }}"
+  run_once: true
+
+- name: kubectl get nodes
+  command: kubectl --kubeconfig $HOME/kube_config_cluster.yml get nodes
+  delegate_to: "{{ groups['jumper'][0] }}"
+  register: nodes_status
+  until:      
+     - '" Ready "  in nodes_status.stdout'      
+  retries: 5
+  delay: 60
+  run_once: true
+- name: print nodes status
+  debug:
+#    var: nodes_status.stdout_lines
+    msg: "{{ nodes_status.stdout_lines|list }}"
+  run_once: true
+
+- name: Create the ServiceAccount in the kube-system namespace
+  shell: kubectl --kubeconfig $HOME/kube_config_cluster.yml -n kube-system create serviceaccount tiller
+  delegate_to: "{{ groups['jumper'][0] }}"
+  register: tiller_account
+  run_once: true
+  
+- name: serviceaccount tiller
+  debug:
+    msg: "{{ tiller_account.stdout_lines|list }}"
+    
+- name: Create the ClusterRoleBinding to give the tiller account access to the cluster
+  shell: kubectl --kubeconfig $HOME/kube_config_cluster.yml create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+  delegate_to: "{{ groups['jumper'][0] }}"
+  register: ClusterRoleBinding
+  run_once: true
+  
+- name: ClusterRoleBinding Result
+  debug:
+    msg: "{{ ClusterRoleBinding.stdout_lines|list }}"
+
+- name: Finally use helm to install the tiller service
+  shell: $HOME/helm --kubeconfig $HOME/kube_config_cluster.yml init --service-account tiller
+  delegate_to: "{{ groups['jumper'][0] }}"
+  register: install_tiller_service
+  run_once: true
+  
+- name: install the tiller service`
+  debug:
+    msg: "{{ install_tiller_service.stdout_lines|list }}"
+  run_once: true
+  
+- name: Test your Tiller installation
+  shell: kubectl --kubeconfig $HOME/kube_config_cluster.yml -n kube-system  rollout status deploy/tiller-deploy
+  delegate_to: "{{ groups['jumper'][0] }}"
+  register: Test_your_Tiller_installation
+  run_once: true
+  
+- name: verify the installation of tiller on your cluster
+  debug:
+    msg: "{{ Test_your_Tiller_installation.stdout_lines|list }}"
+  run_once: true
+
+- name: Add the Helm Chart Repository
+  shell: $HOME/helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
+  delegate_to: "{{ groups['jumper'][0] }}"
+  run_once: true
+  
+- name: Install cert-manager
+  shell: $HOME/helm --kubeconfig $HOME/kube_config_cluster.yml install stable/cert-manager --name cert-manager --namespace kube-system
+  delegate_to: "{{ groups['jumper'][0] }}"
+  run_once: true
+  
+- name: Rancher installation
+  shell: $HOME/helm --kubeconfig $HOME/kube_config_cluster.yml install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname={{ cluster_domain }}
+  delegate_to: "{{ groups['jumper'][0] }}"
+  when: cluster_domain is defined
+  run_once: true
+
+# - name: Fail Message
+  # fail: msg=cluster_domain variable is not defined
+  # when: cluster_domain is not defined
+  
