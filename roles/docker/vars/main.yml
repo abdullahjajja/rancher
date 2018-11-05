@@ -10,7 +10,7 @@ __docker_pre_packages:
   - python-setuptools
   - python-docker-py
   - wget
-  - kubectl
+#  - kubectl
 
 # CentOS
 ##############
