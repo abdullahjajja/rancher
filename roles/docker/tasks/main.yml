@@ -98,6 +98,12 @@
     groups: docker
     password: "{{ 'r5dh@t' | password_hash('sha512') }}"
     
+- name: USER CREATION ON RedHat
+  user:
+    name: rancher
+    groups: dockerroot
+    password: "{{ 'r5dh@t' | password_hash('sha512') }}"
+  when: ansible_distribution == 'RedHat'        
 # - name: stop docker
   # shell: systemctl stop docker
   
