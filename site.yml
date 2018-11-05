@@ -1,6 +1,6 @@
 ---
 - name: Installing and configuring Docker
-  hosts: all
+  hosts: rancher
   roles:
     - docker
 - name: Setting up Rancher Server
