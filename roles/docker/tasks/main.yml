@@ -52,8 +52,8 @@
 - name: Wait for machine to come back
   wait_for_connection:
     connect_timeout: 20
-    delay: 5
-    sleep: 5
+    delay: 10
+    sleep: 10
     timeout: 120
   when: sestatus.stdout!="Disabled"
  
