@@ -1,4 +1,16 @@
 ---
+- name: udp ports opening in firewalld
+  firewalld: port={{ item }}/tcp permanent=yes state=enabled
+  with_items: "{{ firewall_allowed_tcp_ports }}"
+  notify: restart firewalld   
+
+- name: udp ports opening in firewalld
+  firewalld: port={{ item }}/udp permanent=yes state=enabled
+  with_items: "{{ firewall_allowed_udp_ports }}"
+
+- name: firewall reload
+  command: firewall-cmd --reload
+  
 - name: COPYING KUBECTL REPO FILE
   copy:
     src: kubernetes.repo
