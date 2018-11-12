@@ -1,13 +1,5 @@
 ---
-#- name: Installing and configuring Docker
-#  hosts: rancher
-#  roles:
-#    - docker
-- name: Setting up Rancher Server
+- name: Docker installation
   hosts: all
   roles:
     - docker
-#- name: Setting up Rancher Server
-#  hosts: rancher
-#  roles:
-#    - rancher
