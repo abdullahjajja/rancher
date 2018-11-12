@@ -24,18 +24,4 @@ __docker_build: stable
 ##############
 __docker_package_RedHat: docker
 __docker_version_RedHat: 1.13.1
-firewall_allowed_tcp_ports:
-  - "80"
-  - "443"
-  - "6443"
-  - "2376"  
-  - "2379"
-  - "2380"
-  - "9099"
-  - "10250"
-  - "10254"
-  - "8879"
-  - "30000-32767"
-firewall_allowed_udp_ports:
-  - "8472"
-  - "30000-32767"
+
