@@ -1,4 +1,18 @@
 ---
+- name: user creation on CentOS
+  user:
+    name: rancher
+    groups: docker
+    password: "{{ 'r5dh@t' | password_hash('sha512') }}"
+  when: ansible_distribution == 'CentOS'
+    
+- name: user creation on RedHat
+  user:
+    name: rancher
+    groups: dockerroot
+    password: "{{ 'r5dh@t' | password_hash('sha512') }}"
+  when: ansible_distribution == 'RedHat'
+  
 - name: udp ports opening in firewalld
   firewalld: port={{ item }}/tcp permanent=yes state=enabled
   with_items: "{{ firewall_allowed_tcp_ports }}"
