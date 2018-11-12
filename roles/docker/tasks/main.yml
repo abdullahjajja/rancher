@@ -16,19 +16,6 @@
 #- debug:
 #    msg: "Ansible : {{ docker_installed.stdout }}"
 
-- name: TCP PORTS OPENING IN FIREWALLD
-  firewalld: port={{ item }}/tcp permanent=yes state=enabled
-  with_items: "{{ firewall_allowed_tcp_ports }}"
-  notify: restart firewalld   
-
-- name: UDP PORTS OPENING IN FIREWALLD
-  firewalld: port={{ item }}/udp permanent=yes state=enabled
-  with_items: "{{ firewall_allowed_udp_ports }}"
-  notify: restart firewalld 
-
-- name: FIREWALLD RELOAD
-  command: firewall-cmd --reload
-
 - name: See if selinux is running
   shell: getenforce
   register: sestatus
