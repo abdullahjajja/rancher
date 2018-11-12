@@ -1,0 +1,5 @@
+---
+- name: Installing and configuring Docker
+  hosts: all
+  roles:
+    - rancher
