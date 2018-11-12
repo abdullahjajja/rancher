@@ -1,20 +1,12 @@
 ---
-# tasks file for docker
-# - name: 'check cluster_domain variable is defined or not'
-  # fail: msg="cluster_domain variable is not Defined"
-  # when: " cluster_domain is not defined "
 
-# - name: 'check jumper host group is defined or not'
-  # fail: msg="jumper host group is not Defined"
-  # when: "'jumper' not in groups"   
-  
 - name: Determining if Docker is already install
   shell: docker --version
   register: docker_installed
   ignore_errors: true
   changed_when: false
 - debug:
-    msg: "Ansible : {{ docker_installed.stdout }}"
+    msg: "{{ docker_installed.stdout }}"
 
 - name: See if selinux is running
   shell: getenforce
@@ -43,32 +35,6 @@
     sleep: 10
     timeout: 120
   when: sestatus.stdout!="Disabled"
- 
-# - name: INSTALL DEPENDENCIES
-  # yum:
-      # name={{ item }}
-      # update_cache=yes
-      # state=present
-  # with_items: "{{ __docker_pre_packages }}"
-
-# - name: ADD DOCKER YUM REPO
-  # shell: "yum-config-manager --add-repo {{ __docker_repo_url }}"
-  # when: __docker_package == "docker-ce" and ansible_distribution == 'CentOS'
-
-# - name: Add docker yum repo for older versions
-  # yum_repository:
-    # name: docker
-    # description: Docker Repo
-    # baseurl: "{{ __docker_repo_url }}"
-    # gpgkey: "{{ __docker_repo_key }}"
-    # gpgcheck: yes
-  # when: __docker_package == "docker-engine" and ansible_distribution == 'CentOS'
-
-# - name: INSTALLING DOCKER PACKAGE On CentOS
-  # yum: 
-    # name="{{ __docker_package }}-{{ __docker_version }}"
-    # update_cache=yes
-  # when: ansible_distribution == 'CentOS'
 
 - name: Docker and its Dependencies installation
   yum: 
@@ -78,9 +44,9 @@
   with_items:
    - python-setuptools
    - python-docker-py
-   - docker-selinux
    - docker
    - wget
+#  when: "'Docker version 1.13.1' in docker_installed.stdout"     
 #  when: ansible_distribution == 'RedHat'
 - name: starting and enable docker at boot time
   service: name=docker state=started enabled=true
