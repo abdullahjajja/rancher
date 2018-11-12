@@ -1,6 +1,6 @@
 galaxy_info:
-  author: your name
-  description: your description
+  author: Abdullah Khan
+  description: Rancher-2.1.1 installation
   company: your company (optional)
 
   # If the issue tracker for your role is not on github, uncomment the
