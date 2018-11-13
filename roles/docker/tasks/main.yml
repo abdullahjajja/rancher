@@ -32,7 +32,7 @@
     connect_timeout: 20
     delay: 10
     sleep: 10
-    timeout: 120
+    timeout: 600
   when: sestatus.stdout!="Disabled"
 
 - name: Docker and its Dependencies installation
