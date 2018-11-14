@@ -19,15 +19,12 @@
    - "10254"
    - "8879"
    - "30000-32767"  
-#  with_items: "{{ firewall_allowed_tcp_ports }}"
-#  notify: restart firewalld   
 
 - name: udp ports opening in firewalld
   firewalld: port={{ item }}/udp permanent=yes state=enabled
   with_items:
    - "8879"
    - "30000-32767"  
-#  with_items: "{{ firewall_allowed_udp_ports }}"
 
 - name: firewall reload
   shell: firewall-cmd --reload
@@ -130,7 +127,6 @@
   delegate_to: localhost
   run_once: true
 - name: rancher managment nodes deployment using rke
-#  run_once: true
   shell: $HOME/rke up --config $HOME/cluster.yml
   async: 1800
   poll: 5
