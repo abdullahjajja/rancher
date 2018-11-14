@@ -91,7 +91,7 @@
   authorized_key:
     user: rancher
     state: present
-    key: "{{ jump_server_ssh_keys.stdout }}"
+    key: ~/.ssh/id_rsa.pub
 #  delegate_to: "{{ item }}"
 #  with_items: "{{groups['rancher']}}"
 
