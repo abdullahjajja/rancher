@@ -155,8 +155,8 @@
   run_once: true
 
 - name: Create the ServiceAccount in the kube-system namespace
-  shell: kubectl --kubeconfig $HOME/kube_config_cluster.yml -n kube-system create serviceaccount tiller
-  delegate_to: "{{ groups['jumper'][0] }}"
+  shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml -n kube-system create serviceaccount tiller
+  delegate_to: localhost
   register: tiller_account
   run_once: true
   
@@ -166,7 +166,7 @@
     
 - name: Create the ClusterRoleBinding to give the tiller account access to the cluster
   shell: $Home/kubectl --kubeconfig $HOME/kube_config_cluster.yml create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
   register: ClusterRoleBinding
   run_once: true
   
@@ -176,7 +176,7 @@
 
 - name: Finally use helm to install the tiller service
   shell: $HOME/helm --kubeconfig $HOME/kube_config_cluster.yml init --service-account tiller
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
   register: install_tiller_service
   run_once: true
   
