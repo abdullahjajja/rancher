@@ -151,7 +151,6 @@
   run_once: true
 - name: print nodes status
   debug:
-#    var: nodes_status.stdout_lines
     msg: "{{ nodes_status.stdout_lines|list }}"
   run_once: true
 
