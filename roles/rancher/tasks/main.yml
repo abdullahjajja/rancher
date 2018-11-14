@@ -121,6 +121,7 @@
     backup: yes
   delegate_to: localhost
   run_once: true
+
 - name: rancher managment nodes deployment using rke
   shell: $HOME/rke up --config $HOME/cluster.yml
   async: 1800
@@ -129,6 +130,11 @@
     KUBECONFIG: $HOME/kube_config_cluster.yml
   delegate_to: localhost
   run_once: true
+
+- name: copy kube_config_cluster.yml file to rancher servers
+  copy:
+    src: $HOME/kube_config_cluster.yml
+    dest: $HOME
 
 - name: kubectl get nodes
   shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml get nodes
@@ -139,6 +145,7 @@
   retries: 5
   delay: 60
   run_once: true
+  
 - name: print nodes status
   debug:
     msg: "{{ nodes_status.stdout_lines|list }}"
