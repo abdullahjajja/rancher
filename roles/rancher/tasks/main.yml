@@ -1,5 +1,4 @@
 ---
-   
 - name: user creation on RedHat
   user:
     name: rancher
@@ -91,7 +90,8 @@
   authorized_key:
     user: rancher
     state: present
-    key: ~/.ssh/id_rsa.pub
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+#    key: ~/.ssh/id_rsa.pub
 #  delegate_to: "{{ item }}"
 #  with_items: "{{groups['rancher']}}"
 
@@ -128,7 +128,6 @@
     dest: $HOME/cluster.yml
     backup: yes
   delegate_to: localhost
-#  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
 - name: rancher managment nodes deployment using rke
 #  run_once: true
@@ -165,7 +164,7 @@
     msg: "{{ tiller_account.stdout_lines|list }}"
     
 - name: Create the ClusterRoleBinding to give the tiller account access to the cluster
-  shell: $Home/kubectl --kubeconfig $HOME/kube_config_cluster.yml create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+  shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
   delegate_to: localhost
   register: ClusterRoleBinding
   run_once: true
