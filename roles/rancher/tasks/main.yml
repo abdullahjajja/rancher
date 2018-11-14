@@ -1,42 +1,51 @@
 ---
-- name: user creation on CentOS
-  user:
-    name: rancher
-    groups: docker
-    password: "{{ 'r5dh@t' | password_hash('sha512') }}"
-  when: ansible_distribution == 'CentOS'
-    
+   
 - name: user creation on RedHat
   user:
     name: rancher
     groups: dockerroot
     password: "{{ 'r5dh@t' | password_hash('sha512') }}"
-  when: ansible_distribution == 'RedHat'
   
-- name: udp ports opening in firewalld
+- name: tcp ports opening in firewalld
   firewalld: port={{ item }}/tcp permanent=yes state=enabled
-  with_items: "{{ firewall_allowed_tcp_ports }}"
-  notify: restart firewalld   
+  with_items:
+   - "80"
+   - "443"
+   - "6443"
+   - "2376"  
+   - "2379"
+   - "2380"
+   - "9099"
+   - "10250"
+   - "10254"
+   - "8879"
+   - "30000-32767"  
+#  with_items: "{{ firewall_allowed_tcp_ports }}"
+#  notify: restart firewalld   
 
 - name: udp ports opening in firewalld
   firewalld: port={{ item }}/udp permanent=yes state=enabled
-  with_items: "{{ firewall_allowed_udp_ports }}"
+  with_items:
+   - "8879"
+   - "30000-32767"  
+#  with_items: "{{ firewall_allowed_udp_ports }}"
 
 - name: firewall reload
-  command: firewall-cmd --reload
+  shell: firewall-cmd --reload
   
 - name: COPYING KUBECTL REPO FILE
   copy:
-    src: kubernetes.repo
-    dest: /etc/yum.repos.d/
+    src: kubectl
+    dest: $HOME
     mode: 0755
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
+#  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true 
   
-- name: install kubelet
-  yum: name=kubectl state=present update_cache=true
-  delegate_to: "{{ groups['jumper'][0] }}"
-  run_once: true
+#- name: install kubelet
+#  yum: name=kubectl state=present update_cache=true
+#  delegate_to: "{{ groups['jumper'][0] }}"
+#  run_once: true
  
 # - authorized_key:
     # user: rancher
@@ -44,28 +53,29 @@
 - name: Ensure SSH keys don't already exist
   stat:    
     path: ~/.ssh/id_rsa    
-  register: ssh_key    
-  delegate_to: "{{ groups['jumper'][0] }}"    
+  register: ssh_key
+  delegate_to: localhost    
+#  delegate_to: "{{ groups['jumper'][0] }}"    
   run_once: true    
     
 - name: SSH Keys SSH keys don't exist    
   debug:    
     msg: "SSH keys don't exist"    
-  delegate_to: "{{ groups['jumper'][0] }}"    
+  delegate_to: localhost    
   when: ssh_key.stat.exists == False    
   run_once: true    
     
 - name: Generate SSH keys for passwordless SSH    
   shell: ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ''    
   register: id_rsa_pub    
-  delegate_to: "{{ groups['jumper'][0] }}"    
+  delegate_to: localhost
   when: ssh_key.stat.exists == False    
   run_once: true    
     
 - name: fetch jump server public ssh keys    
   shell: cat ~/.ssh/id_rsa.pub    
   register: jump_server_ssh_keys    
-  delegate_to: "{{ groups['jumper'][0] }}"    
+  delegate_to: localhost
   when: ssh_key.stat.exists == True
   changed_when: False  
   run_once: true    
@@ -73,7 +83,7 @@
 - name: check keys    
   debug:     
     msg: " {{ jump_server_ssh_keys.stdout }}"    
-  delegate_to: "{{ groups['jumper'][0] }}"    
+  delegate_to: localhost    
   when: ssh_key.stat.exists == True    
   run_once: true    
     
@@ -82,8 +92,8 @@
     user: rancher
     state: present
     key: "{{ jump_server_ssh_keys.stdout }}"
-  delegate_to: "{{ item }}"
-  with_items: "{{groups['rancher']}}"
+#  delegate_to: "{{ item }}"
+#  with_items: "{{groups['rancher']}}"
 
 
 - name: COPYING RKE FILE
@@ -91,7 +101,8 @@
     src: rke
     dest: $HOME
     mode: 0755
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
+#  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
 
 - name: COPYING JQ FILE
@@ -99,7 +110,7 @@
     src: jq
     dest: $HOME
     mode: 0755
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
   run_once: true
   
 - name: copy helm
@@ -107,7 +118,8 @@
     src: helm
     dest: $HOME
     mode: 0755
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
+#  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
   
 - name: rancher cluster yml file creation
@@ -115,7 +127,8 @@
     src: cluster.cnf.j2
     dest: $HOME/cluster.yml
     backup: yes
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
+#  delegate_to: "{{ groups['jumper'][0] }}"
   run_once: true
 - name: rancher managment nodes deployment using rke
 #  run_once: true
@@ -124,12 +137,12 @@
   poll: 5
   environment:
     KUBECONFIG: $HOME/kube_config_cluster.yml
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
   run_once: true
 
 - name: kubectl get nodes
-  command: kubectl --kubeconfig $HOME/kube_config_cluster.yml get nodes
-  delegate_to: "{{ groups['jumper'][0] }}"
+  shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml get nodes
+  delegate_to: localhost
   register: nodes_status
   until:      
      - '" Ready "  in nodes_status.stdout'      
@@ -153,7 +166,7 @@
     msg: "{{ tiller_account.stdout_lines|list }}"
     
 - name: Create the ClusterRoleBinding to give the tiller account access to the cluster
-  shell: kubectl --kubeconfig $HOME/kube_config_cluster.yml create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+  shell: $Home/kubectl --kubeconfig $HOME/kube_config_cluster.yml create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
   delegate_to: "{{ groups['jumper'][0] }}"
   register: ClusterRoleBinding
   run_once: true
@@ -174,8 +187,8 @@
   run_once: true
   
 - name: Test your Tiller installation
-  shell: kubectl --kubeconfig $HOME/kube_config_cluster.yml -n kube-system  rollout status deploy/tiller-deploy
-  delegate_to: "{{ groups['jumper'][0] }}"
+  shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml -n kube-system  rollout status deploy/tiller-deploy
+  delegate_to: localhost
   register: Test_your_Tiller_installation
   run_once: true
   
@@ -186,17 +199,17 @@
 
 - name: Add the Helm Chart Repository
   shell: $HOME/helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
   run_once: true
   
 - name: Install cert-manager
   shell: $HOME/helm --kubeconfig $HOME/kube_config_cluster.yml install stable/cert-manager --name cert-manager --namespace kube-system
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
   run_once: true
   
 - name: Rancher installation
   shell: $HOME/helm --kubeconfig $HOME/kube_config_cluster.yml install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname={{ cluster_domain }}
-  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: localhost
   when: cluster_domain is defined
   run_once: true
 
