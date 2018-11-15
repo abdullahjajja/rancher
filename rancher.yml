@@ -1,5 +1,6 @@
 ---
 - name: Installing and configuring Docker
   hosts: all
+  become: yes
   roles:
     - rancher
