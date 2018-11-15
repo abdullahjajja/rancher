@@ -1,11 +1,11 @@
 nodes:
-  - address: {{ groups['rancher'][0] }}
+  - address: {{ groups['all'][0] }}
     user: rancher
     role: [controlplane,worker,etcd]
-  - address: {{ groups['rancher'][1] }}
+  - address: {{ groups['all'][1] }}
     user: rancher
     role: [controlplane,worker,etcd]
-  - address: {{ groups['rancher'][2] }}
+  - address: {{ groups['all'][2] }}
     user: rancher
     role: [controlplane,worker,etcd]
 
