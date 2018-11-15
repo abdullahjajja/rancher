@@ -38,7 +38,10 @@
   run_once: true 
   
 - name: install kubelet
-  yum: name=kubectl state=present update_cache=true
+  copy: 
+    src: kubectl 
+    dest: /usr/bin/ 
+    mode: 0755
 
 # - authorized_key:
     # user: rancher
