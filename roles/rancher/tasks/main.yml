@@ -134,10 +134,10 @@
   delegate_to: localhost
   run_once: true
 
-- name: copy kube_config_cluster.yml file to rancher servers
-  copy:
-    src: $HOME/kube_config_cluster.yml
-    dest: /tmp/kube_config_cluster.yml
+# - name: copy kube_config_cluster.yml file to rancher servers
+#   copy:
+#     src: $HOME/kube_config_cluster.yml
+#     dest: /tmp/kube_config_cluster.yml
 
 - name: kubectl get nodes
   shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml get nodes
