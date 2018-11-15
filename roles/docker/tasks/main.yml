@@ -11,14 +11,15 @@
   shell: getenforce
   register: sestatus
   
+- name: printing current selinux status
+  debug: msg="selinux is {{sestatus.stdout}}"
+  when: sestatus.stdout == "Enforcing"
+  
 - name: Disable SELinux at next reboot
   selinux:
    state: disabled
   when: sestatus.stdout == "Enforcing"
-  
-- name: printing current selinux status
-  debug: msg="selinux is {{sestatus.stdout}}"
-  
+   
 - name: restart server
   shell: sleep 2 && shutdown -r now "Ansible updates triggered"
   async: 1
