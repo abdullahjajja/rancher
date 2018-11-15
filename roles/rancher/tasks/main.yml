@@ -137,7 +137,7 @@
 - name: copy kube_config_cluster.yml file to rancher servers
   copy:
     src: $HOME/kube_config_cluster.yml
-    dest: $HOME
+    dest: $HOME/kube_config_cluster.yml
 
 - name: kubectl get nodes
   shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml get nodes
