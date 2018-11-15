@@ -43,10 +43,9 @@
   with_items:
    - python-setuptools
    - python-docker-py
+   - docker-selinux
    - docker
    - wget
-#  when: "'Docker version 1.13.1' in docker_installed.stdout"     
-#  when: ansible_distribution == 'RedHat'
 - name: starting and enable docker at boot time
   service: name=docker state=started enabled=true
   
