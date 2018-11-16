@@ -3,7 +3,7 @@
   user:
     name: rancher
     groups: dockerroot
-    password: "{{ 'r5dh@t' | password_hash('sha512') }}"
+    password: "{{ '!ChangeMeForProduction!' | password_hash('sha512') }}"
   
 - name: tcp ports opening in firewalld
   firewalld: port={{ item }}/tcp permanent=yes state=enabled
@@ -29,56 +29,40 @@
 - name: firewall reload
   shell: firewall-cmd --reload
   
-- name: COPYING KUBECTL REPO FILE
-  copy:
-    src: kubectl
-    dest: $HOME
-    mode: 0755
-  delegate_to: localhost
-  run_once: true 
-  
-- name: install kubelet
-  copy: 
-    src: kubectl 
-    dest: /usr/bin/ 
-    mode: 0755
-
-# - authorized_key:
-    # user: rancher
-    # key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
-- name: Ensure SSH keys don't already exist
+- name: Ensure SSH keys already exist
   stat:    
     path: ~/.ssh/id_rsa    
   register: ssh_key
-  delegate_to: localhost    
+  delegate_to: "{{ groups['all'][0] }}"
   run_once: true    
     
 - name: SSH Keys SSH keys don't exist    
   debug:    
     msg: "SSH keys don't exist"    
-  delegate_to: localhost    
+  delegate_to: "{{ groups['all'][0] }}"
   when: ssh_key.stat.exists == False    
   run_once: true    
     
-- name: Generate SSH keys for passwordless SSH    
+- name: Generate SSH keys for passwordless SSH  if alread not exist  
   shell: ssh-keygen -t rsa -f ~/.ssh/id_rsa -N ''    
   register: id_rsa_pub    
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   when: ssh_key.stat.exists == False    
-  run_once: true    
-    
+  run_once: true 
+     
+
 - name: fetch jump server public ssh keys    
-  shell: cat ~/.ssh/id_rsa.pub    
+  shell: cat $HOME/.ssh/id_rsa.pub    
   register: jump_server_ssh_keys    
-  delegate_to: localhost
-  when: ssh_key.stat.exists == True
-  changed_when: False  
+  delegate_to: "{{ groups['all'][0] }}"
+#  when: ssh_key.stat.exists == True
+#  changed_when: False  
   run_once: true    
     
 - name: check keys    
   debug:     
     msg: " {{ jump_server_ssh_keys.stdout }}"    
-  delegate_to: localhost    
+  delegate_to: "{{ groups['all'][0] }}"
   when: ssh_key.stat.exists == True    
   run_once: true    
     
@@ -86,18 +70,24 @@
   authorized_key:
     user: rancher
     state: present
-    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
-#    key: ~/.ssh/id_rsa.pub
-#  delegate_to: "{{ item }}"
+    key: "{{ jump_server_ssh_keys.stdout }}"
+    exclusive: yes
 #  with_items: "{{groups['rancher']}}"
 
+- name: COPYING KUBECTL FILE
+  copy:
+    src: kubectl
+    dest: $HOME
+    mode: 0755
+  delegate_to: "{{ groups['all'][0] }}"
+  run_once: true 
 
 - name: COPYING RKE FILE
   copy:
     src: rke
     dest: $HOME
     mode: 0755
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   run_once: true
 
 - name: COPYING JQ FILE
@@ -105,7 +95,7 @@
     src: jq
     dest: $HOME
     mode: 0755
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   run_once: true
   
 - name: copy helm
@@ -113,8 +103,7 @@
     src: helm
     dest: $HOME
     mode: 0755
-  delegate_to: localhost
-#  delegate_to: "{{ groups['jumper'][0] }}"
+  delegate_to: "{{ groups['all'][0] }}"
   run_once: true
   
 - name: rancher cluster yml file creation
@@ -122,7 +111,7 @@
     src: cluster.cnf.j2
     dest: $HOME/cluster.yml
     backup: yes
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   run_once: true
 
 - name: rancher managment nodes deployment using rke
@@ -131,17 +120,12 @@
   poll: 5
   environment:
     KUBECONFIG: $HOME/kube_config_cluster.yml
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   run_once: true
-
-# - name: copy kube_config_cluster.yml file to rancher servers
-#   copy:
-#     src: $HOME/kube_config_cluster.yml
-#     dest: /tmp/kube_config_cluster.yml
 
 - name: kubectl get nodes
   shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml get nodes
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   register: nodes_status
   until:      
      - '" Ready "  in nodes_status.stdout'      
@@ -156,7 +140,7 @@
 
 - name: Create the ServiceAccount in the kube-system namespace
   shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml -n kube-system create serviceaccount tiller
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   register: tiller_account
   run_once: true
   
@@ -166,7 +150,7 @@
     
 - name: Create the ClusterRoleBinding to give the tiller account access to the cluster
   shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   register: ClusterRoleBinding
   run_once: true
   
@@ -176,7 +160,7 @@
 
 - name: Finally use helm to install the tiller service
   shell: $HOME/helm --kubeconfig $HOME/kube_config_cluster.yml init --service-account tiller
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   register: install_tiller_service
   run_once: true
   
@@ -187,7 +171,7 @@
   
 - name: Test your Tiller installation
   shell: $HOME/kubectl --kubeconfig $HOME/kube_config_cluster.yml -n kube-system  rollout status deploy/tiller-deploy
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   register: Test_your_Tiller_installation
   run_once: true
   
@@ -198,17 +182,17 @@
 
 - name: Add the Helm Chart Repository
   shell: $HOME/helm repo add rancher-stable https://releases.rancher.com/server-charts/stable
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   run_once: true
   
 - name: Install cert-manager
   shell: $HOME/helm --kubeconfig $HOME/kube_config_cluster.yml install stable/cert-manager --name cert-manager --namespace kube-system
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   run_once: true
   
 - name: Rancher installation
   shell: $HOME/helm --kubeconfig $HOME/kube_config_cluster.yml install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname={{ cluster_domain }}
-  delegate_to: localhost
+  delegate_to: "{{ groups['all'][0] }}"
   when: cluster_domain is defined
   run_once: true
 
